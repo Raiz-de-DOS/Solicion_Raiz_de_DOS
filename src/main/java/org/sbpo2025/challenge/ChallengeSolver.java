@@ -84,17 +84,17 @@ public class ChallengeSolver {
         IloIntVar[] listaW1 = new IloIntVar[this.orders.size()];
         IloIntVar[] listaA1 = new IloIntVar[this.aisles.size()];
 
-        //Si la orden pertenece a la wave
+        // Order belongs to wave
         for (int o = 0; o < this.orders.size(); o++) {
             listaW1[o] = prob.boolVar(String.format("W_%d", o));
         }
 
-        //Si se usa el pasillo a
+        //Aisle is used
         for (int a = 0; a < this.aisles.size(); a++) {
             listaA1[a] = prob.boolVar(String.format("A_%d", a));
         }
 
-        //La cantidad de elementos que se toman en la Wave está en rango
+        // The amount of items that are taken in the Wave is in range
         IloLinearIntExpr suma = prob.linearIntExpr();
         for (int o = 0; o < this.orders.size(); o++) {
             for (Map.Entry<Integer, Integer> i : this.orders.get(o).entrySet()) {
@@ -104,7 +104,7 @@ public class ChallengeSolver {
         prob.addLe(suma, this.waveSizeUB);
         prob.addGe(suma, this.waveSizeLB);
 
-        // Todos los elementos que tomo de un pasillo tienen stock
+        // All items grabbed from an aisle have stock
         for (int i = 0; i < this.nItems; i++) {
             IloLinearIntExpr izq = prob.linearIntExpr();
             IloLinearIntExpr der = prob.linearIntExpr();
@@ -386,6 +386,3 @@ public class ChallengeSolver {
     }
 }
 
-//java -Djava.library.path=""HOME/Users/DAFNE/OneDrive/Documentos/GitHub/challenge-sbpo-2025\cplex\lib\cplex.jar"" -jar target/ChallengeSBPO2025-1.0.jar datasets/a/instance_0001.txt primerRes.txt
-// java -Djava.library.path="C:/Users/DAFNE/challenge-sbpo-2025/cplex/bin/x64_win64" -jar target/ChallengeSBPO2025-1.0.jar datasets\a\instance_0001.txt salida.txt
-// java -jar target/ChallengeSBPO2025-1.0.jar input_prueba.txt ./outputs.txt
