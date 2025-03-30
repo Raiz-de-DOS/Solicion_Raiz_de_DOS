@@ -1,7 +1,5 @@
 package org.sbpo2025.challenge;
 
-import org.apache.commons.lang3.time.StopWatch;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -11,6 +9,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang3.time.StopWatch;
+
+import ilog.concert.IloException;
 
 public class Challenge {
 
@@ -69,7 +71,7 @@ public class Challenge {
         }
     }
 
-    public void writeOutput(ChallengeSolution challengeSolution, String outputFilePath) {
+    public static void writeOutput(ChallengeSolution challengeSolution, String outputFilePath) {
         if (challengeSolution == null) {
             System.err.println("Solution not found");
             return;
@@ -108,7 +110,7 @@ public class Challenge {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IloException {
         // Start the stopwatch to track the running time
         StopWatch stopWatch = StopWatch.createStarted();
 
@@ -116,13 +118,14 @@ public class Challenge {
             System.out.println("Usage: java -jar target/ChallengeSBPO2025-1.0.jar <inputFilePath> <outputFilePath>");
             return;
         }
-
         Challenge challenge = new Challenge();
         challenge.readInput(args[0]);
         var challengeSolver = new ChallengeSolver(
                 challenge.orders, challenge.aisles, challenge.nItems, challenge.waveSizeLB, challenge.waveSizeUB);
-        ChallengeSolution challengeSolution = challengeSolver.solve(stopWatch);
+        ChallengeSolution challengeSolution = null;
+        challengeSolution = challengeSolver.solve(stopWatch);
 
-        challenge.writeOutput(challengeSolution, args[1]);
+        Challenge.writeOutput(challengeSolution, args[1]);
     }
 }
+
