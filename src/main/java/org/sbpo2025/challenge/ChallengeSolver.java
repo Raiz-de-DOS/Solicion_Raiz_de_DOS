@@ -386,3 +386,4 @@ public class ChallengeSolver {
     }
 }
 
+//java -jar target/ChallengeSBPO2025-1.0.jar datasets\a\instance_0001.txt ./outputs/outputs_01_approx_bis.txt
