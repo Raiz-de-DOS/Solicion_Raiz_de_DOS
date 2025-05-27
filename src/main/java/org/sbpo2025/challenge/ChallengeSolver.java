@@ -26,7 +26,7 @@ public class ChallengeSolver {
     private final long MAX_REMAINING_SECONDS_TO_STOP = 10; // seconds; 1 minute
     private final double EPSILON = .50;
     private final double MINUS_INF = Double.MIN_VALUE;
-    private final double TOLERANCE = Math.exp(-6);
+    private final double TOLERANCE = 1e-4;
 
     protected List<Map<Integer, Integer>> orders;
     protected List<Map<Integer, Integer>> aisles;
@@ -63,7 +63,7 @@ public class ChallengeSolver {
             dictASol = solucionActual.get(1);
         } else {
             System.out.println("Chose binary search");
-            List<List<Boolean>> solucionActual = planteo_busqueda_binaria(prob, epsilon, stopWatch);
+            List<List<Boolean>> solucionActual = planteoBusquedaBinaria(prob, epsilon,  stopWatch);
             dictWSol = solucionActual.get(0);
             dictASol = solucionActual.get(1);
         }
@@ -166,7 +166,63 @@ public class ChallengeSolver {
         return resPasillos;
     }
 
-    private List<List<Boolean>> planteo_busqueda_binaria(IloCplex prob, double epsilon, StopWatch stopWatch) throws IloException {
+    private double optimizacionLimiteInferior() throws IloException {
+        IloCplex subProb = new IloCplex();
+
+        try {
+            IloIntVar[] listaW1 = new IloIntVar[this.orders.size()];
+
+            for (int o = 0; o < this.orders.size(); o++) {
+                listaW1[o] = subProb.boolVar(String.format("W_%d", o));
+            }
+
+            IloLinearIntExpr suma2 = subProb.linearIntExpr();
+            for (int o = 0; o < this.orders.size(); o++) {
+                for (Map.Entry<Integer, Integer> i : this.orders.get(o).entrySet()) {
+                    suma2.addTerm(i.getValue(), listaW1[o]);
+                }
+            }
+            subProb.addLe(suma2, this.waveSizeUB);
+            subProb.addGe(suma2, this.waveSizeLB);
+
+            for (int i = 0; i < this.nItems; i++) {
+                IloLinearIntExpr izq = subProb.linearIntExpr();
+                int der = 0;
+
+                for (int o = 0; o < this.orders.size(); o++) {
+                    int u_oi = this.orders.get(o).getOrDefault(i, 0);
+                    izq.addTerm(u_oi, listaW1[o]);
+                }
+                for (int a = 0; a < this.aisles.size(); a++) {
+                    int u_ai = this.aisles.get(a).getOrDefault(i, 0);
+                    der += u_ai;
+                }
+                subProb.addLe(izq, der);
+            }
+
+            subProb.addMaximize(suma2);
+            subProb.setParam(IloCplex.Param.MIP.Tolerances.AbsMIPGap, TOLERANCE);
+
+            double limiteInf = MINUS_INF;
+            if (subProb.solve()) {
+                double valorObjetivoActual = subProb.getObjValue() / this.aisles.size();
+                if (limiteInf <= valorObjetivoActual) {
+                    limiteInf = valorObjetivoActual;
+                }
+            } else {
+                System.out.printf("Infactible para a'=%d\n", this.aisles.size());
+            }
+
+            return limiteInf;
+
+        } finally {
+            subProb.end();
+        }
+    }
+
+    private List<List<Boolean>> planteoBusquedaBinaria(IloCplex prob, double epsilon, StopWatch stopWatch) throws IloException {
+
+        double limiteInf = optimizacionLimiteInferior();
         List<List<Boolean>> resBB = new ArrayList<>();
 
         if (this.orders.isEmpty() || this.aisles.isEmpty()) {
@@ -220,7 +276,10 @@ public class ChallengeSolver {
         Set<Double> conjValoresK = new HashSet<>();
         for (int b = waveSizeLB; b < waveSizeUB + 1; b++) {
             for (int a = 1; a <= aisles.size(); a++) {
-                conjValoresK.add((double) b / a);
+                double actual = (double) b/a;
+                if (actual > limiteInf) {
+                    conjValoresK.add((double) b / a);
+                }
             }
         }
         // Convert Set a List
@@ -262,7 +321,7 @@ public class ChallengeSolver {
             }
         }
         else{
-            System.out.println(String.format("Infactible", 0));
+            System.out.printf("Infactible%n", 0);
             return null;
         }
 
@@ -273,8 +332,7 @@ public class ChallengeSolver {
         
         while (searchMin < searchMax - 1 && remainingTime > this.MAX_REMAINING_SECONDS_TO_STOP) { //Termination criterion
             prob.setParam(IloCplex.Param.TimeLimit, remainingTime-5);
-
-            System.out.println(String.format("Remaining time: %d", remainingTime));
+            System.out.printf("Remaining time: %d%n", remainingTime);
             int j = (int) Math.floor((double) (searchMax + searchMin) / 2);
 
             restriccion1 = prob.addGe(prob.sum(prob.prod(valoresK.get(j), sumaDeA), prob.prod(-1, suma)), -EPSILON); // Convertirlo a restricciones ensanguchadas con epsilon
@@ -312,6 +370,7 @@ public class ChallengeSolver {
 
         resBB.add(valoresW);
         resBB.add(valoresA);
+        System.out.println(prob.getObjValue());
         return resBB;
     }
     /*
@@ -386,3 +445,6 @@ public class ChallengeSolver {
     }
 }
 
+//java -jar target/ChallengeSBPO2025-1.0.jar datasets\a\instance_0001.txt ./outputs/outputs_01_approx_bis.txt
+
+//Dafu: java -jar target/ChallengeSBPO2025-1.0.jar datasets/b/instance_0001.txt outputs_b.txt
