@@ -26,7 +26,7 @@ public class ChallengeSolver {
     private final long MAX_REMAINING_SECONDS_TO_STOP = 10; // seconds; 1 minute
     private final double EPSILON = .50;
     private final double MINUS_INF = Double.MIN_VALUE;
-    private final double TOLERANCE = 1e-4;
+    private final double TOLERANCE = Math.exp(-6);
 
     protected List<Map<Integer, Integer>> orders;
     protected List<Map<Integer, Integer>> aisles;
@@ -56,14 +56,14 @@ public class ChallengeSolver {
         System.out.println(String.format("LB: %d", this.waveSizeLB));
         System.out.println(String.format("UB: %d", this.waveSizeUB));
 
-        if (cantPasillos <= rango_k) {
+        if (false && cantPasillos <= rango_k) {
             System.out.println("Chose fixed aisles");
             List<List<Boolean>> solucionActual = planteoPasillosFijos(prob);
             dictWSol = solucionActual.get(0);
             dictASol = solucionActual.get(1);
         } else {
             System.out.println("Chose binary search");
-            List<List<Boolean>> solucionActual = planteoBusquedaBinaria(prob, epsilon,  stopWatch);
+            List<List<Boolean>> solucionActual = planteo_busqueda_binaria(prob, epsilon, stopWatch);
             dictWSol = solucionActual.get(0);
             dictASol = solucionActual.get(1);
         }
@@ -220,10 +220,10 @@ public class ChallengeSolver {
         }
     }
 
-    private List<List<Boolean>> planteoBusquedaBinaria(IloCplex prob, double epsilon, StopWatch stopWatch) throws IloException {
-
-        double limiteInf = optimizacionLimiteInferior();
+    private List<List<Boolean>> planteo_busqueda_binaria(IloCplex prob, double epsilon, StopWatch stopWatch) throws IloException {
         List<List<Boolean>> resBB = new ArrayList<>();
+        double limiteInf = optimizacionLimiteInferior();
+        limiteInf /= this.aisles.size(); 
 
         if (this.orders.isEmpty() || this.aisles.isEmpty()) {
             throw new IloException("Error: There are know available orders or aisles.");
@@ -276,9 +276,9 @@ public class ChallengeSolver {
         Set<Double> conjValoresK = new HashSet<>();
         for (int b = waveSizeLB; b < waveSizeUB + 1; b++) {
             for (int a = 1; a <= aisles.size(); a++) {
-                double actual = (double) b/a;
-                if (actual > limiteInf) {
-                    conjValoresK.add((double) b / a);
+                double actual = (double) b / a;
+                if (actual >= limiteInf) {
+                    conjValoresK.add(actual);
                 }
             }
         }
@@ -321,7 +321,7 @@ public class ChallengeSolver {
             }
         }
         else{
-            System.out.printf("Infactible%n", 0);
+            System.out.println(String.format("Infactible", 0));
             return null;
         }
 
@@ -332,13 +332,15 @@ public class ChallengeSolver {
         
         while (searchMin < searchMax - 1 && remainingTime > this.MAX_REMAINING_SECONDS_TO_STOP) { //Termination criterion
             prob.setParam(IloCplex.Param.TimeLimit, remainingTime-5);
-            System.out.printf("Remaining time: %d%n", remainingTime);
+
+            System.out.println(String.format("Remaining time: %d", remainingTime));
             int j = (int) Math.floor((double) (searchMax + searchMin) / 2);
 
             restriccion1 = prob.addGe(prob.sum(prob.prod(valoresK.get(j), sumaDeA), prob.prod(-1, suma)), -EPSILON); // Convertirlo a restricciones ensanguchadas con epsilon
             restriccion2 = prob.addLe(prob.sum(prob.prod(valoresK.get(j), sumaDeA), prob.prod(-1, suma)), EPSILON - 10e-3);
 
             isSolved = prob.solve();
+            //prob.exportModel("cositas_binaria_original.lp");
 
             if (isSolved) {
                 double z_obj = prob.getObjValue();
@@ -370,7 +372,6 @@ public class ChallengeSolver {
 
         resBB.add(valoresW);
         resBB.add(valoresA);
-        System.out.println(prob.getObjValue());
         return resBB;
     }
     /*
@@ -448,3 +449,7 @@ public class ChallengeSolver {
 //java -jar target/ChallengeSBPO2025-1.0.jar datasets\a\instance_0001.txt ./outputs/outputs_01_approx_bis.txt
 
 //Dafu: java -jar target/ChallengeSBPO2025-1.0.jar datasets/b/instance_0001.txt outputs_b.txt
+
+
+
+// TODO: Dividir por this.aisles.size() la solución de la heurística en plateoBusquedaBinaria
